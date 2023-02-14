@@ -35,7 +35,10 @@ class Bcftools(AutotoolsPackage):
         default=False,
         description="build options that require the GNU scientific " "library",
     )
-
+    variant("plot-roh",
+            default=True,
+            description="require python package matplotlib runtime dependency to support bcftools plot-roh command",
+    )            
     variant(
         "perl-filters",
         default=False,
@@ -44,7 +47,7 @@ class Bcftools(AutotoolsPackage):
     )
 
     depends_on("gsl", when="+libgsl")
-    depends_on("py-matplotlib", when="@1.6:", type="run")
+    depends_on("py-matplotlib", when="@1.6:+plot-roh", type="run")
     depends_on("perl", when="@1.8:~perl-filters", type="run")
     depends_on("perl", when="@1.8:+perl-filters", type=("build", "run"))
 
