@@ -251,3 +251,47 @@ class R(AutotoolsPackage):
         # already.
         if dependent_spec.package.is_extension:
             mkdirp(module.r_lib_dir)
+
+    def add_files_to_view(self, view, merge_map, skip_if_exists=True):
+        """The R executable is a script that hard-codes R_HOME.
+        which determines, among other things, where subsequent
+        packages are installed. This function copies all
+        relevant r files over and modifies them so that the
+        paths are all correct"""
+
+        bin_dir = self.spec.prefix.bin if sys.platform != "win32" else self.spec.prefix
+        for src, dst in merge_map.items():
+            if not path_contains_subdirectory(src, bin_dir):
+                view.link(src, dst, spec=self.spec)
+            elif not os.path.islink(src):
+                copy(src, dst)
+                if is_nonsymlink_exe_with_shebang(src):
+                    filter_file(
+                        self.spec.prefix,
+                        os.path.abspath(view.get_projection_for_spec(self.spec)),
+                        dst,
+                        backup=False,
+                    )
+            else:
+                # orig_link_target = os.path.realpath(src) is insufficient when
+                # the spack install tree is located at a symlink or a
+                # descendent of a symlink. What we need here is the real
+                # relative path from the R prefix to src
+                # TODO: generalize this logic in the link_tree object
+                #    add a method to resolve a link relative to the link_tree
+                #    object root.
+                realpath_src = os.path.realpath(src)
+                realpath_prefix = os.path.realpath(self.spec.prefix)
+                realpath_rel = os.path.relpath(realpath_src, realpath_prefix)
+                orig_link_target = os.path.join(self.spec.prefix, realpath_rel)
+
+                new_link_target = os.path.abspath(merge_map[orig_link_target])
+                view.link(new_link_target, dst, spec=self.spec)
+
+    def remove_files_from_view(self, view, merge_map):
+        bin_dir = self.spec.prefix.bin if sys.platform != "win32" else self.spec.prefix
+        for src, dst in merge_map.items():
+            if not path_contains_subdirectory(src, bin_dir):
+                view.remove_file(src, dst)
+            else:
+                os.remove(dst)
